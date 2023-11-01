@@ -251,16 +251,21 @@ def parse_gpt4_response(response):
 def create_ics(schedule_entries):
     logging.info("Schedule: {}".format(schedule_entries))
     cal = icalendar.Calendar()
-    # Assuming the date is today, adjust as necessary
-    today = date.today()
     for entry in schedule_entries:
-        # Unpack the entry tuple into components
-        start_time_delta, duration_delta, task = entry
+        # Split the entry string into components
+        start_time_str, duration_str, task = entry.split(', ')
         
-        # Convert timedelta to time, and then to datetime
-        start_time = (datetime.min + start_time_delta).time()
+        # Parse the start time string to a datetime object
+        start_time = datetime.strptime(start_time_str, '%H:%M').time()
+        
+        # Extract the number of minutes from the duration string
+        duration_mins = int(re.search(r'(\d+)m', duration_str).group(1))
+        duration = timedelta(minutes=duration_mins)
+        
+        # Assuming the date is today, adjust as necessary
+        today = date.today()
         start_datetime = datetime.combine(today, start_time)
-        end_datetime = start_datetime + duration_delta
+        end_datetime = start_datetime + duration
 
         event = icalendar.Event()
         event.add('summary', task)
@@ -269,7 +274,6 @@ def create_ics(schedule_entries):
         cal.add_component(event)
 
     return cal.to_ical().decode()
-
 
 
 def validate_ics(ics_content):
@@ -463,7 +467,7 @@ def revise_schedule():
     accepted = data.get('accepted', None)
     feedback = data.get('feedback', None)
 
-    current_state = session[session_id]
+    current_state = session.get(session_id, {})
 
     if not current_state:
         return jsonify(error='No current schedule data found, please start with /generate_schedule endpoint'), 400
